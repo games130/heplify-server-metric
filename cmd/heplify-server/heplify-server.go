@@ -20,7 +20,7 @@ import (
 	proto "github.com/games130/heplify-server-metric/proto"
 	"github.com/micro/go-log"
 	"github.com/micro/go-micro"
-	_ "github.com/micro/go-plugins/broker/nats"
+	"github.com/micro/go-micro/broker"
 	"github.com/micro/go-micro/server"
 )
 
@@ -103,7 +103,7 @@ func main() {
 	}
 	
 	b := nats.NewBroker(
-		broker.Addrs(config.Setting.brokerAddr),
+		broker.Addrs(config.Setting.BrokerAddr),
 	)
 	
 	// create a service
@@ -115,7 +115,7 @@ func main() {
 	
 	h:=new(Sub)
 	// register subscriber
-	micro.RegisterSubscriber(config.Setting.brokerTopic, service.Server(), h, server.SubscriberQueue(config.Setting.brokerQueue))
+	micro.RegisterSubscriber(config.Setting.BrokerTopic, service.Server(), h, server.SubscriberQueue(config.Setting.BrokerQueue))
 
 
 	if err := service.Run(); err != nil {

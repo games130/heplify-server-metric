@@ -98,6 +98,7 @@ func (p *Prometheus) setup() (err error) {
 
 func (p *Prometheus) expose(hCh chan *decoder.HEP) {
 	for pkt := range hCh {
+		logp.Info("exposing some packet %s and %s", pkt.CID, pkt.FirstMethod)
 		packetsByType.WithLabelValues(pkt.NodeName, pkt.ProtoString).Inc()
 		packetsBySize.WithLabelValues(pkt.NodeName, pkt.ProtoString).Set(float64(len(pkt.Payload)))
 
