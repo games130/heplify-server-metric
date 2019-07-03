@@ -109,6 +109,7 @@ func main() {
 	// create a service
 	service := micro.NewService(
 		micro.Name("go.micro.srv.metric"),
+		micro.Broker(b),
 	)
 	// parse command line
 	service.Init()
