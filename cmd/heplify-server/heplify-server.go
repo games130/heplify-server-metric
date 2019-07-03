@@ -118,16 +118,19 @@ func main() {
 	// register subscriber
 	micro.RegisterSubscriber(config.Setting.BrokerTopic, service.Server(), h, server.SubscriberQueue(config.Setting.BrokerQueue))
 
-
-	if err := service.Run(); err != nil {
-		log.Fatal(err)
+	go func(service micro.Service) {
+		if err := service.Run(); err != nil {
+			log.Fatal(err)
+		}
 	}
 	
 	m := metric.New("prometheus")
 	m.Chan = h.Chan
-
-	if err := m.Run(); err != nil {
-		logp.Err("%v", err)
+	
+	go func(m metric.Metric) {
+		if err := m.Run(); err != nil {
+			logp.Err("%v", err)
+		}
+		defer m.End()
 	}
-	defer m.End()
 }
