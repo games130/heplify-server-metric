@@ -2,13 +2,9 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"sync"
-	"syscall"
 	"context"
 
 	_ "net/http/pprof"
@@ -19,7 +15,7 @@ import (
 	"github.com/games130/heplify-server-metric/config"
 	"github.com/games130/heplify-server-metric/decoder"
 	
-	proto "github.com/games130/protoMetric"
+	proto "github.com/games130/heplify-server-metric/proto"
 	"github.com/micro/go-log"
 	"github.com/micro/go-micro"
 	_ "github.com/micro/go-plugins/broker/nats"
