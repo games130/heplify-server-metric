@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/games130/heplify-server-metric/config"
 	"github.com/games130/heplify-server-metric/decoder"
+	"github.com/games130/heplify-server-metric/metric"
 	
 	proto "github.com/games130/heplify-server-metric/proto"
 	"github.com/micro/go-log"
