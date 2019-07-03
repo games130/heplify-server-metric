@@ -34,7 +34,7 @@ func (s *Sub) Process(ctx context.Context, event *proto.Event) error {
 	//log.Logf("[pubsub.1] Received event %+v with metadata %+v\n", event.GetCID(), md)
 	//log.Logf("[pubsub.1] Received event %+v", event.GetFirstMethod())
 	// do something with event
-	hepPkt, err := decoder.DecodeHEP(event)
+	hepPkt, _ := decoder.DecodeHEP(event)
 	s.Chan <- hepPkt
 	
 	return nil
