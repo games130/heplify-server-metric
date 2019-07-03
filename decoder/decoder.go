@@ -8,8 +8,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/games130/logp"
-	"github.com/games130/heplify-server-metric/config"
 	proto "github.com/games130/protoMetric"
 )
 
