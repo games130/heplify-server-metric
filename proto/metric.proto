@@ -40,6 +40,10 @@ message Event {
 	string ReasonVal = 20;
 	string RTPStatVal = 21;
 	string ToUser = 22;
+	string ProtoString = 23;
+	string Timestamp = 24;
+	string HostTag = 25;
+	string NodeName = 26;
 }
 
 
