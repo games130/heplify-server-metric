@@ -73,7 +73,7 @@ func DecodeHEP(packet *proto.Event) (*HEP, error) {
 	hep.ProtoString  = packet.GetProtoString()
 	
 	str := packet.GetTimestamp()
-	t,_ = time.Parse(time.RFC3339, str)
+	t,_ := time.Parse(time.RFC3339, str)
 	hep.Timestamp    = t
 	
 	hep.HostTag      = packet.GetHostTag()
