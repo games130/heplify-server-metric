@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"context"
 	"syscall"
 	"sync"
 
@@ -16,33 +15,12 @@ import (
 	"github.com/games130/logp"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/games130/heplify-server-metric/config"
-	"github.com/games130/heplify-server-metric/decoder"
-	"github.com/games130/heplify-server-metric/metric"
-	"github.com/micro/go-plugins/broker/nats"
-	
-	proto "github.com/games130/heplify-server-metric/proto"
-	"github.com/micro/go-log"
-	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/server"
+	input "github.com/games130/heplify-server-metric/server"
 )
 
-// All methods of Sub will be executed when
-// a message is received
-type Sub struct{
-	Chan chan *decoder.HEP
-}
-
-// Method can be of any name
-func (s *Sub) Process(ctx context.Context, event *proto.Event) error {
-	//log.Logf("[pubsub.1] Received event %+v with metadata %+v\n", event.GetCID(), md)
-	//log.Logf("[pubsub.1] Received event %+v", event.GetFirstMethod())
-	// do something with event
-	fmt.Println("received %s and %s", event.GetCID(), event.GetFirstMethod())
-	hepPkt, _ := decoder.DecodeHEP(event)
-	s.Chan <- hepPkt
-	
-	return nil
+type server interface {
+	Run()
+	End()
 }
 
 func init() {
@@ -99,10 +77,29 @@ func main() {
 	var sigCh = make(chan os.Signal, 1)
 	var wg sync.WaitGroup
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
 	
-
-
+	startServer := func() {
+		hep := input.NewHEPInput()
+		servers = []server{hep}
+		for _, srv := range servers {
+			wg.Add(1)
+			go func(s server) {
+				defer wg.Done()
+				s.Run()
+			}(srv)
+		}
+	}
+	endServer := func() {
+		for _, srv := range servers {
+			wg.Add(1)
+			go func(s server) {
+				defer wg.Done()
+				s.End()
+			}(srv)
+		}
+		wg.Wait()
+	}
+	
 	if promAddr := config.Setting.PromAddr; len(promAddr) > 2 {
 		go func() {
 			http.Handle("/metrics", promhttp.Handler())
@@ -113,53 +110,6 @@ func main() {
 		}()
 	}
 	
-	b := nats.NewBroker(
-		broker.Addrs(config.Setting.BrokerAddr),
-	)
-	
-	// create a service
-	service := micro.NewService(
-		micro.Name("go.micro.srv.metric"),
-		micro.Broker(b),
-	)
-	// parse command line
-	service.Init()
-	
-	h:=new(Sub)
-	// register subscriber
-	micro.RegisterSubscriber(config.Setting.BrokerTopic, service.Server(), h, server.SubscriberQueue(config.Setting.BrokerQueue))
-
-	m := metric.New("prometheus")
-	m.Chan = h.Chan
-
-
-	startServer := func() {
-		//wg.Add(1)
-		go func() {
-			if err := service.Run(); err != nil {
-				log.Fatal(err)
-			}
-		}()
-	
-		go func() {
-			if err := m.Run(); err != nil {
-				logp.Err("%v", err)
-			}
-		}()
-	}
-
-
-	endServer := func() {
-		wg.Add(1)
-		go func() {
-			m.End()
-		}()
-		
-	}
-
-	
-
-	fmt.Println("server before start")
 	startServer()
 	fmt.Println("server started")
 	<-sigCh
