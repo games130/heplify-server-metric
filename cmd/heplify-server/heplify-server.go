@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"context"
+	"syscall"
+	"sync"
 
 	_ "net/http/pprof"
 
@@ -35,6 +38,7 @@ func (s *Sub) Process(ctx context.Context, event *proto.Event) error {
 	//log.Logf("[pubsub.1] Received event %+v with metadata %+v\n", event.GetCID(), md)
 	//log.Logf("[pubsub.1] Received event %+v", event.GetFirstMethod())
 	// do something with event
+	fmt.Println("received %s and %s", event.GetCID(), event.GetFirstMethod())
 	hepPkt, _ := decoder.DecodeHEP(event)
 	s.Chan <- hepPkt
 	
@@ -92,6 +96,13 @@ func tomlExists(f string) bool {
 }
 
 func main() {
+	var sigCh = make(chan os.Signal, 1)
+	var wg sync.WaitGroup
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	
+
+
 	if promAddr := config.Setting.PromAddr; len(promAddr) > 2 {
 		go func() {
 			http.Handle("/metrics", promhttp.Handler())
@@ -118,19 +129,40 @@ func main() {
 	// register subscriber
 	micro.RegisterSubscriber(config.Setting.BrokerTopic, service.Server(), h, server.SubscriberQueue(config.Setting.BrokerQueue))
 
-	go func(service micro.Service) {
-		if err := service.Run(); err != nil {
-			log.Fatal(err)
-		}
-	}
-	
 	m := metric.New("prometheus")
 	m.Chan = h.Chan
+
+
+	startServer := func() {
+		//wg.Add(1)
+		go func() {
+			if err := service.Run(); err != nil {
+				log.Fatal(err)
+			}
+		}()
 	
-	go func(m metric.Metric) {
-		if err := m.Run(); err != nil {
-			logp.Err("%v", err)
-		}
-		defer m.End()
+		go func() {
+			if err := m.Run(); err != nil {
+				logp.Err("%v", err)
+			}
+		}()
 	}
+
+
+	endServer := func() {
+		wg.Add(1)
+		go func() {
+			m.End()
+		}()
+		
+	}
+
+	
+
+	fmt.Println("server before start")
+	startServer()
+	fmt.Println("server started")
+	<-sigCh
+	fmt.Println("server closed") 
+	endServer()
 }
