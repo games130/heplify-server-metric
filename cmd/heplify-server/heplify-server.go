@@ -74,6 +74,7 @@ func tomlExists(f string) bool {
 }
 
 func main() {
+	var servers []server
 	var sigCh = make(chan os.Signal, 1)
 	var wg sync.WaitGroup
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
