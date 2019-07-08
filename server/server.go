@@ -27,7 +27,7 @@ type HEPInput struct {
 
 func (h *HEPInput) subEv(ctx context.Context, event *proto.Event) error {
 	//log.Logf("[pubsub.2] Received event %+v with metadata %+v\n", event, md)
-	fmt.Println("received %s and %s", event.GetCID(), event.GetFirstMethod())
+	//fmt.Println("received %s and %s", event.GetCID(), event.GetFirstMethod())
 	
 	// do something with event
 	h.inCh <- event
@@ -70,14 +70,14 @@ func (h *HEPInput) Run() {
 	m := metric.New("prometheus")
 	m.Chan = h.pmCh
 	
-	fmt.Println("micro server before start")
+	//fmt.Println("micro server before start")
 	go func (){
 		if err := service.Run(); err != nil {
 			logp.Err("%v", err)
 		}
 	}()	
 
-	fmt.Println("metric server before start")
+	//fmt.Println("metric server before start")
 	if err := m.Run(); err != nil {
 		logp.Err("%v", err)
 	}
@@ -102,7 +102,7 @@ func (h *HEPInput) hepWorker() {
 			h.wg.Done()
 			return
 		case msg := <-h.inCh:
-			fmt.Println("want to start decoding %s and %s", msg.GetCID(), msg.GetFirstMethod())
+			//fmt.Println("want to start decoding %s and %s", msg.GetCID(), msg.GetFirstMethod())
 			hepPkt, _ := decoder.DecodeHEP(msg)
 			h.pmCh <- hepPkt
 		}
