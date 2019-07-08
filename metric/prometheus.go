@@ -37,7 +37,7 @@ func (p *Prometheus) setup() (err error) {
 	//connection to hazelcast
 	hazelConfig := hazelcast.NewConfig() // We create a config for illustrative purposes.
                                     // We do not adjust this config. Therefore it has default settings.
-	hazelConfig.NetworkConfig().AddAddress("172.17.0.2:5701")
+	hazelConfig.NetworkConfig().AddAddress(config.Setting.HazelCastAddr)
 	p.hazelClient, err = hazelcast.NewClientWithConfig(hazelConfig)
 	if err != nil {
 		logp.Info("hazel error: ", err)
