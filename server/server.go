@@ -24,6 +24,7 @@ type HEPInput struct {
 	pmCh      chan *decoder.HEP
 	wg        *sync.WaitGroup
 	quit      chan bool
+	stats     HEPStats
 }
 
 type HEPStats struct {
