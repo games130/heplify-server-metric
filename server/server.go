@@ -80,6 +80,7 @@ func NewHEPInput() *HEPInput {
 }
 
 func (h *HEPInput) Run() {
+	logp.Info("creating hepWorker totaling: %s", runtime.NumCPU()*4)
 	for n := 0; n < runtime.NumCPU()*4; n++ {
 		h.wg.Add(1)
 		go h.hepWorker()

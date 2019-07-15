@@ -44,7 +44,7 @@ func (p *Prometheus) setup() (err error) {
 		return
 	} else {
 		logp.Info("hazelcast connected")
-		logp.Info("connection: ", p.hazelClient.Name()) // Connects and prints the name of the client
+		//logp.Info("connection: ", p.hazelClient.Name()) // Connects and prints the name of the client
 	}
 	
 
@@ -271,7 +271,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				processMap.Delete(keyCallID)
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.RelBeforeRing").Inc()
 			} else {
-				logp.Warn("Line 272")
+				//logp.Warn("Line 272")
 			}
 		}
 	} else if pkt.FirstMethod == "BYE" {
@@ -284,8 +284,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				//new
 				PreviousUnixTimestamp, _ := onlineMap.Get(pkt.CallID)
 				if PreviousUnixTimestamp == nil {
-					logp.Info("ERROR BYE but no start time")
-					logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
+					//logp.Info("ERROR BYE but no start time")
+					//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 				} else {
 					CurrentUnixTimestamp := time.Now().Unix()
 					onlineMap.Delete(pkt.CallID)
@@ -294,7 +294,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.OnlineSession").Set(float64(count))
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.CallCounter").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.AccumulatedCallDuration").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
-					logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+					//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 				}
 			}
 		}
