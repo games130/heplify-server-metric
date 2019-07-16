@@ -17,4 +17,5 @@ type HeplifyServer struct {
 	LogStd             bool     `default:"false"`
 	LogSys             bool     `default:"false"`
 	Config             string   `default:"./heplify-server.toml"`
+	PerMSGDebug        bool     `default:"false"`
 }

@@ -24,13 +24,15 @@ const (
 )
 
 type Prometheus struct {
-	TargetEmpty bool
-	TargetIP    []string
-	TargetName  []string
-	TargetMap   map[string]string
-	TargetConf  *sync.RWMutex
-	cache       *fastcache.Cache
-	hazelClient	hazelcast.Client
+	TargetEmpty   bool
+	TargetIP      []string
+	TargetName    []string
+	TargetMap     map[string]string
+	TargetConf    *sync.RWMutex
+	cache         *fastcache.Cache
+	hazelClient	  hazelcast.Client
+	perMSGDebug   bool
+	count         int64
 }
 
 func (p *Prometheus) setup() (err error) {
@@ -52,6 +54,8 @@ func (p *Prometheus) setup() (err error) {
 	p.TargetIP = strings.Split(cutSpace(config.Setting.PromTargetIP), ",")
 	p.TargetName = strings.Split(cutSpace(config.Setting.PromTargetName), ",")
 	p.cache = fastcache.New(cacheSize)
+	p.perMSGDebug = config.Setting.PerMSGDebug
+	p.count = 1
 	
 	//new
 	if p.TargetIP[0] != "" && p.TargetName[0] != "" {
@@ -98,6 +102,11 @@ func (p *Prometheus) setup() (err error) {
 
 func (p *Prometheus) expose(hCh chan *decoder.HEP) {
 	for pkt := range hCh {
+		if p.perMSGDebug {
+				logp.Info("perMSGDebug-prom: ,Count,%s, SrcIP,%s, DstIP,%s, CID,%s, FirstMethod,%s, FromUser,%s, ToUser,%s", p.count, pkt.SrcIP, pkt.DstIP, pkt.CallID, pkt.FirstMethod, pkt.FromUser, pkt.ToUser)
+				p.count++
+		}
+		
 		//logp.Info("exposing some packet %s and %s", pkt.CID, pkt.FirstMethod)
 		//fmt.Println("exposing some packet %s and %s", pkt.CID, pkt.FirstMethod)
 		packetsByType.WithLabelValues(pkt.NodeName, pkt.ProtoString).Inc()
