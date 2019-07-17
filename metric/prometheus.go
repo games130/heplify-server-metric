@@ -14,6 +14,7 @@ import (
 	"github.com/games130/heplify-server-metric/config"
 	"github.com/games130/heplify-server-metric/decoder"
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/config/property"
 	
 )
 
@@ -43,7 +44,7 @@ func (p *Prometheus) setup() (err error) {
 	hazelConfig.SetProperty(property.StatisticsEnabled.Name(), "true")
 	hazelConfig.SetProperty(property.StatisticsPeriodSeconds.Name(), "3")
 	hazelConfig.GroupConfig().SetName(config.Setting.HazelCastGroupName)
-	config.GroupConfig().SetPassword(config.Setting.HazelCastGroupPassword)
+	hazelConfig.GroupConfig().SetPassword(config.Setting.HazelCastGroupPassword)
 	hazelConfig.NetworkConfig().AddAddress(config.Setting.HazelCastAddr)
 	
 	
