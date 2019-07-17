@@ -39,7 +39,14 @@ func (p *Prometheus) setup() (err error) {
 	//connection to hazelcast
 	hazelConfig := hazelcast.NewConfig() // We create a config for illustrative purposes.
                                     // We do not adjust this config. Therefore it has default settings.
+	
+	hazelConfig.SetProperty(property.StatisticsEnabled.Name(), "true")
+	hazelConfig.SetProperty(property.StatisticsPeriodSeconds.Name(), "3")
+	hazelConfig.GroupConfig().SetName(config.Setting.HazelCastGroupName)
+	config.GroupConfig().SetPassword(config.Setting.HazelCastGroupPassword)
 	hazelConfig.NetworkConfig().AddAddress(config.Setting.HazelCastAddr)
+	
+	
 	p.hazelClient, err = hazelcast.NewClientWithConfig(hazelConfig)
 	if err != nil {
 		logp.Info("hazel error: ", err)
