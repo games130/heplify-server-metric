@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"time"
 	"strconv"
+	"os"
+	"bufio"
+	"unicode"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/games130/logp"
@@ -34,6 +37,7 @@ type Prometheus struct {
 	hazelClient	  hazelcast.Client
 	perMSGDebug   bool
 	count         int64
+	DataMap       map[string][]string
 }
 
 func (p *Prometheus) setup() (err error) {
@@ -65,25 +69,7 @@ func (p *Prometheus) setup() (err error) {
 	p.perMSGDebug = config.Setting.PerMSGDebug
 	p.count = 1
 	
-	//new
-	if p.TargetIP[0] != "" && p.TargetName[0] != "" {
-		for _, tn := range p.TargetName {
-			if strings.HasPrefix(tn, "mp") {
-				//mp = call only
-				tnNew := strings.TrimPrefix(tn, "mp")
-				prepopulateSIPCallError(tnNew)
-			} else if strings.HasPrefix(tn, "mr") {
-				//mr = call and register
-				tnNew := strings.TrimPrefix(tn, "mr")
-				prepopulateSIPCallError(tnNew)
-				prepopulateSIPREGError(tnNew)
-			} else if strings.HasPrefix(tn, "mv") {
-				//mv = SIP register only
-				tnNew := strings.TrimPrefix(tn, "mv")
-				prepopulateSIPREGError(tnNew)
-			}
-		}
-	}
+	p.loadData()
 
 	if len(p.TargetIP) == len(p.TargetName) && p.TargetIP != nil && p.TargetName != nil {
 		if len(p.TargetIP[0]) == 0 || len(p.TargetName[0]) == 0 {
@@ -104,6 +90,25 @@ func (p *Prometheus) setup() (err error) {
 		logp.Info("please give every PromTargetIP a unique IP and PromTargetName a unique name")
 		return fmt.Errorf("faulty PromTargetIP or PromTargetName")
 	}
+	
+	//new
+	for ipAddress, tn := range p.TargetMap {
+		if strings.HasPrefix(tn, "mp") {
+			//mp = call only
+			tnNew := strings.TrimPrefix(tn, "mp")
+			p.prepopulateSIPCallError(tnNew, ipAddress)
+		} else if strings.HasPrefix(tn, "mr") {
+			//mr = call and register
+			tnNew := strings.TrimPrefix(tn, "mr")
+			p.prepopulateSIPCallError(tnNew, ipAddress)
+			p.prepopulateSIPREGError(tnNew, ipAddress)
+		} else if strings.HasPrefix(tn, "mv") {
+			//mv = SIP register only
+			tnNew := strings.TrimPrefix(tn, "mv")
+			p.prepopulateSIPREGError(tnNew, ipAddress)
+		}
+	}
+	
 
 	return err
 }
@@ -438,14 +443,115 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 }
 
 
-func prepopulateSIPCallError(tnNew string) {
-	for j := 400; j <= 699; j++ {
-        heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", strconv.Itoa(j)).Set(0)
+func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
+	logp.Info("prepopulateSIPCallError with tnNew=%s and ipAddress=%s",tnNew,ipAddress)
+	if len(config.Setting.Respond4xx) > 0 {
+		for k := range config.Setting.Respond4xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
+			}
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond4xx[k]).Set(0)
+		}
+	}
+	if len(config.Setting.Respond5xx) > 0 {
+		for k := range config.Setting.Respond5xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
+			}
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond5xx[k]).Set(0)
+		}
+	}
+	if len(config.Setting.Respond6xx) > 0 {
+		for k := range config.Setting.Respond6xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
+				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
+			}
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond6xx[k]).Set(0)
+		}
 	}
 }
 
-func prepopulateSIPREGError(tnNew string) {
-	for j := 400; j <= 699; j++ {
-        heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", strconv.Itoa(j)).Set(0)
+func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
+	logp.Info("prepopulateSIPREGError with tnNew=%s and ipAddress=%s",tnNew,ipAddress)
+	if len(config.Setting.Respond4xx) > 0 {
+		for k := range config.Setting.Respond4xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
+			}
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond4xx[k]).Set(0)
+		}
+	}
+	if len(config.Setting.Respond5xx) > 0 {
+		for k := range config.Setting.Respond5xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
+			}
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond5xx[k]).Set(0)
+		}
+	}
+	if len(config.Setting.Respond6xx) > 0 {
+		for k := range config.Setting.Respond6xx {
+			for _,tn := range p.DataMap[ipAddress]{
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
+			}
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond6xx[k]).Set(0)
+		}
+	}
+}
+
+func fileExists(f string) bool {
+	_, err := os.Stat(f)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return err == nil
+}
+
+/*func parseLine(s string, x rune) []string {
+	return strings.FieldsFunc(s, func(r rune) bool {
+		if r == x {
+			return true
+		}
+		return false
+	})
+}*/
+
+func cutSpace(str string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, str)
+}
+
+func (p *Prometheus) loadData(){
+	if fileExists(config.Setting.PreloadData) {
+		f, err := os.Open(config.Setting.PreloadData)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			s := scanner.Text()
+			logp.Info(s)
+			
+			p.DataMap = make(map[string][]string)
+			firstSplit := strings.Split(cutSpace(s), ";")
+			secondSplit := strings.Split(cutSpace(firstSplit[3]), ",")
+			
+			p.DataMap[firstSplit[2]] = secondSplit
+			logp.Info(p.DataMap[firstSplit[2]])
+		}
+	} else {
+		fmt.Println("Could not find data file", err)
 	}
 }
