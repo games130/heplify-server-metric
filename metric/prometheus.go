@@ -7,10 +7,8 @@ import (
 	"sync"
 	"regexp"
 	"time"
-	"strconv"
 	"os"
 	"bufio"
-	"unicode"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/games130/logp"
@@ -522,22 +520,12 @@ func fileExists(f string) bool {
 	})
 }*/
 
-func cutSpace(str string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsSpace(r) {
-			return -1
-		}
-		return r
-	}, str)
-}
-
 func (p *Prometheus) loadData(){
 	if fileExists(config.Setting.PreloadData) {
 		f, err := os.Open(config.Setting.PreloadData)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer f.Close()
 		
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -549,9 +537,11 @@ func (p *Prometheus) loadData(){
 			secondSplit := strings.Split(cutSpace(firstSplit[3]), ",")
 			
 			p.DataMap[firstSplit[2]] = secondSplit
-			logp.Info(p.DataMap[firstSplit[2]])
+			//logp.Info(p.DataMap[firstSplit[2]])
 		}
+		
+		f.Close()
 	} else {
-		fmt.Println("Could not find data file", err)
+		fmt.Println("Could not find data file")
 	}
 }
