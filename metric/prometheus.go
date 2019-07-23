@@ -524,7 +524,7 @@ func (p *Prometheus) loadData(){
 	if fileExists(config.Setting.PreloadData) {
 		f, err := os.Open(config.Setting.PreloadData)
 		if err != nil {
-			log.Fatal(err)
+			logp.Fatal(err)
 		}
 		
 		scanner := bufio.NewScanner(f)
