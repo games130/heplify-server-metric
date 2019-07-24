@@ -454,6 +454,7 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 	}
 	if len(config.Setting.Respond5xx) > 0 {
 		for k := range config.Setting.Respond5xx {
+			logp.Info("populate 5xx with: %s",config.Setting.Respond5xx[k])
 			for _,tn := range p.DataMap[ipAddress]{
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
@@ -463,6 +464,7 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 	}
 	if len(config.Setting.Respond6xx) > 0 {
 		for k := range config.Setting.Respond6xx {
+			logp.Info("populate 6xx with: %s",config.Setting.Respond6xx[k])
 			for _,tn := range p.DataMap[ipAddress]{
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
@@ -524,7 +526,7 @@ func (p *Prometheus) loadData(){
 	if fileExists(config.Setting.PreloadData) {
 		f, err := os.Open(config.Setting.PreloadData)
 		if err != nil {
-			logp.Fatal(err)
+			//logp.Info(err)
 		}
 		
 		scanner := bufio.NewScanner(f)
