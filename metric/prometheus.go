@@ -454,10 +454,10 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 	}
 	if len(config.Setting.Respond5xx) > 0 {
 		for k := range config.Setting.Respond5xx {
-			logp.Info("populate 5xx with: %s",config.Setting.Respond5xx[k])
-			logp.Info("ipAddress: %s",ipAddress)
+			//logp.Info("populate 5xx with: %s",config.Setting.Respond5xx[k])
+			//logp.Info("ipAddress: %s",ipAddress)
 			for _,tn := range p.DataMap[ipAddress]{
-				logp.Info("populate DataMap with: tn:%s ip:%s",tn, ipAddress)
+				//logp.Info("populate DataMap with: tn:%s ip:%s",tn, ipAddress)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
 			}
@@ -466,10 +466,10 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 	}
 	if len(config.Setting.Respond6xx) > 0 {
 		for k := range config.Setting.Respond6xx {
-			logp.Info("populate 6xx with: %s",config.Setting.Respond6xx[k])
-			logp.Info("ipAddress: %s",ipAddress)
+			//logp.Info("populate 6xx with: %s",config.Setting.Respond6xx[k])
+			//logp.Info("ipAddress: %s",ipAddress)
 			for _,tn := range p.DataMap[ipAddress]{
-				logp.Info("populate DataMap with: tn:%s ip:%s",tn, ipAddress)
+				//logp.Info("populate DataMap with: tn:%s ip:%s",tn, ipAddress)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
 			}
@@ -533,12 +533,12 @@ func (p *Prometheus) loadData(){
 			//logp.Info(err)
 		}
 		
+		p.DataMap = make(map[string][]string)
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			s := scanner.Text()
 			logp.Info(s)
 			
-			p.DataMap = make(map[string][]string)
 			firstSplit := strings.Split(cutSpace(s), ";")
 			secondSplit := strings.Split(cutSpace(firstSplit[3]), ",")
 			
