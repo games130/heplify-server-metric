@@ -449,7 +449,6 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
 			}
-			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond4xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond5xx) > 0 {
@@ -461,7 +460,6 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
 			}
-			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond5xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond6xx) > 0 {
@@ -473,7 +471,6 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
 			}
-			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond6xx[k]).Set(0)
 		}
 	}
 }
@@ -486,7 +483,6 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
 			}
-			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond4xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond5xx) > 0 {
@@ -495,7 +491,6 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
 			}
-			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond5xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond6xx) > 0 {
@@ -504,7 +499,6 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
 			}
-			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "1", "1", config.Setting.Respond6xx[k]).Set(0)
 		}
 	}
 }
