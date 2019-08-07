@@ -95,10 +95,12 @@ func (p *Prometheus) setup() (err error) {
 			//mp = call only
 			tnNew := strings.TrimPrefix(tn, "mp")
 			p.prepopulateSIPCallError(tnNew, ipAddress)
+			p.prepopulateSIPCallMetric(tnNew, ipAddress)
 		} else if strings.HasPrefix(tn, "mr") {
 			//mr = call and register
 			tnNew := strings.TrimPrefix(tn, "mr")
 			p.prepopulateSIPCallError(tnNew, ipAddress)
+			p.prepopulateSIPCallMetric(tnNew, ipAddress)
 			p.prepopulateSIPREGError(tnNew, ipAddress)
 		} else if strings.HasPrefix(tn, "mv") {
 			//mv = SIP register only
@@ -454,6 +456,40 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 			}
 		}
 	}
+}
+
+func (p *Prometheus) prepopulateSIPCallMetric(tnNew string, ipAddress string) {
+	for _,tn := range p.DataMap[ipAddress]{
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.AttSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.AttSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.AttSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.AttSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.RelBeforeRing").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.RelBeforeRing").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.RelBeforeRing").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.RelBeforeRing").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.SuccSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.SuccSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.SuccSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.SuccSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.FailSessionUser").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.FailSessionUser").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.FailSessionUser").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.FailSessionUser").Set(0)
+
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.OnlineSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.CallCounter").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.AccumulatedCallDuration").Set(0)
+	}
+
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.AttSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.AttSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.RelBeforeRing").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.RelBeforeRing").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.SuccSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.SuccSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.FailSessionUser").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.FailSessionUser").Set(0)
 }
 
 
