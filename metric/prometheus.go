@@ -217,7 +217,7 @@ func (p *Prometheus) checkTargetPrefix(pkt *decoder.HEP) {
 		tnNew := st[2:]
 		
 		heplify_SIP_capture_all.WithLabelValues(tnNew, pkt.FirstMethod, pkt.SrcIP, pkt.DstIP).Inc()
-		methodResponses.WithLabelValues(tnNew, "src", "1", pkt.FirstMethod, pkt.CseqMethod).Inc()
+		methodResponses.WithLabelValues(tnNew, "src", "all", pkt.FirstMethod, pkt.CseqMethod).Inc()
 		if pkt.RTPStatVal != "" {
 			p.dissectXRTPStats(tnNew, pkt.RTPStatVal)
 		}
@@ -247,7 +247,7 @@ func (p *Prometheus) checkTargetPrefix(pkt *decoder.HEP) {
 		tnNew := dt[2:]
 		
 		heplify_SIP_capture_all.WithLabelValues(tnNew, pkt.FirstMethod, pkt.SrcIP, pkt.DstIP).Inc()
-		methodResponses.WithLabelValues(tnNew, "dst", "1", pkt.FirstMethod, pkt.CseqMethod).Inc()
+		methodResponses.WithLabelValues(tnNew, "dst", "all", pkt.FirstMethod, pkt.CseqMethod).Inc()
 		
 		switch firstTwoChar {
 			case "mo":
@@ -282,6 +282,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		if value == nil {
 			processMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.AttSession").Inc()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.AttSession").Inc()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.AttSession").Inc()
 			//logp.Info("%v----> INVITE message added to cache", tnNew+pkt.SrcIP+pkt.DstIP+pkt.CallID)
 		}
 	} else if pkt.FirstMethod == "CANCEL" {
@@ -290,6 +292,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 			if value == "INVITE"{
 				processMap.Delete(keyCallID)
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.RelBeforeRing").Inc()
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.RelBeforeRing").Inc()
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.RelBeforeRing").Inc()
 			} else {
 				//logp.Warn("Line 272")
 			}
@@ -311,9 +315,9 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					onlineMap.Delete(pkt.CallID)
 					
 					count, _ := onlineMap.Size()
-					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.OnlineSession").Set(float64(count))
-					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.CallCounter").Inc()
-					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.AccumulatedCallDuration").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.CallCounter").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.AccumulatedCallDuration").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 					//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 				}
 			}
@@ -326,6 +330,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				case "180":
 					processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.SuccSession").Inc()
 					//logp.Info("----> 180 RINGING found")
 				case "200":
 					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
@@ -335,9 +341,11 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
 					
 					count, _ := onlineMap.Size()
-					heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.OnlineSession").Set(float64(count))
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.SuccSession").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
 					//logp.Info("----> 200 before ringing")
 					//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
 				case "486", "600", "404", "484":
@@ -345,11 +353,17 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
 					processMap.Delete(keyCallID)
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.FailSessionUser").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.FailSessionUser").Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
+					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
+					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
 						processMap.Delete(keyCallID)
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
+						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
+						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
 					}
 				}
 			} else if pkt.FirstMethod == "200" && value == "RINGING" {
@@ -359,7 +373,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				CurrentUnixTimestamp := time.Now().Unix()
 				onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
 				count, _ := onlineMap.Size()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, "1", peerIP, "SC.OnlineSession").Set(float64(count))
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
 
 				//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
 			}
@@ -396,7 +410,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				
 				regMap.Delete(tnNew+pkt.FromUser)
 				count, _ := regMap.Size()
-				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "1", "1", "RG.RegisteredUsers").Set(float64(count))
+				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "all", "all", "RG.RegisteredUsers").Set(float64(count))
 			} else {
 				//Re-register (before is 1, now is ReREG)
 				processMap.SetWithTTL(keyRegForward, "ReREG", SIPRegTryTimer)
@@ -412,7 +426,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				regMap.SetWithTTL(tnNew+pkt.FromUser, "value", 1800*time.Second)
 				count, _ := regMap.Size()
 				
-				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "1", "1", "RG.RegisteredUsers").Set(float64(count))
+				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "all", "all", "RG.RegisteredUsers").Set(float64(count))
 				
 				if value == "FirstREG"{
 					heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "RG.1REGAttemptSuccess").Inc()
@@ -428,6 +442,8 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				}
 			} else if errorSIP.MatchString(pkt.FirstMethod){
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
+				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
 				switch pkt.FirstMethod {
 				case "401", "423":
 					//do nothing
@@ -449,6 +465,9 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond4xx[k]).Set(0)
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond4xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond5xx) > 0 {
@@ -460,6 +479,9 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond5xx[k]).Set(0)
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond5xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond6xx) > 0 {
@@ -471,6 +493,9 @@ func (p *Prometheus) prepopulateSIPCallError(tnNew string, ipAddress string) {
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPCallErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond6xx[k]).Set(0)
+			heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond6xx[k]).Set(0)
 		}
 	}
 }
@@ -483,6 +508,9 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond4xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond4xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond4xx[k]).Set(0)
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond4xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond5xx) > 0 {
@@ -491,6 +519,9 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond5xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond5xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond5xx[k]).Set(0)
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond5xx[k]).Set(0)
 		}
 	}
 	if len(config.Setting.Respond6xx) > 0 {
@@ -499,6 +530,9 @@ func (p *Prometheus) prepopulateSIPREGError(tnNew string, ipAddress string) {
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, tn, config.Setting.Respond6xx[k]).Set(0)
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, tn, ipAddress, config.Setting.Respond6xx[k]).Set(0)
 			}
+			//For general summary
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, ipAddress, "all", config.Setting.Respond6xx[k]).Set(0)
+			heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, "all", ipAddress, config.Setting.Respond6xx[k]).Set(0)
 		}
 	}
 }
