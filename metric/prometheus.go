@@ -402,12 +402,15 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
+					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, pkt.Payload)
+
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
 						processMap.Delete(keyCallID)
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
+						logp.Info("name=SIPCallError node=%v msg=%v", tnNew, pkt.Payload)
 					}
 				}
 			} else if pkt.FirstMethod == "200" && value == "RINGING" {
@@ -494,6 +497,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				default:
 					regMap.Delete(tnNew+pkt.FromUser)
 					processMap.Delete(keyRegBackward)
+					//logp.Info("name=SIPRegError node=%v msg=%v", tnNew, pkt.Payload)
 				}
 			}
 		}
