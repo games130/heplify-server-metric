@@ -330,7 +330,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					logp.Info("name=CDR1 END OF CALL,node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 					logp.Info("name=CDR2 END OF CALL,%v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 					logp.Info("name=CDR3 END OF CALL node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
-					logp.Info("name=CDR4 END OF CALL node=%v,from=%v,to=%v,callid=%v,start_timestamp=%v,end_timestamp=%v,difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+					logp.Info("name=CDR4 END OF CALL node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 				}
 			}
 		}
@@ -351,7 +351,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						logp.Info("name=MCD183_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD183_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD183_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
-						logp.Info("name=MCD183_4 node=%v,from=%v,to=%v,callid=%v,start_timestamp=%v,end_timestamp=%v,difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD183_4 node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 
 					}
 				case "180":
@@ -373,7 +373,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
-						logp.Info("name=MCD180_4 node=%v,from=%v,to=%v,callid=%v,start_timestamp=%v,end_timestamp=%v,difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_4 node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 
 					}
 					
