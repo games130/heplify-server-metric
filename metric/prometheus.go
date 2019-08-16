@@ -402,7 +402,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
-					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, pkt.Payload)
+					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
@@ -410,7 +410,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
-						logp.Info("name=SIPCallError node=%v msg=%v", tnNew, pkt.Payload)
+						logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 					}
 				}
 			} else if pkt.FirstMethod == "200" && value == "RINGING" {
@@ -497,7 +497,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				default:
 					regMap.Delete(tnNew+pkt.FromUser)
 					processMap.Delete(keyRegBackward)
-					//logp.Info("name=SIPRegError node=%v msg=%v", tnNew, pkt.Payload)
+					//logp.Info("name=SIPRegError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 				}
 			}
 		}
@@ -660,4 +660,9 @@ func (p *Prometheus) loadData(){
 	} else {
 		fmt.Println("Could not find data file")
 	}
+}
+
+
+func formatLog(s string) string {
+	return strings.Replace(s,"\r\n"," ",-1)
 }
