@@ -39,6 +39,10 @@ var (
 		Name: "heplify_SIP_perf_raw", 
 		Help: "IMS Call performance"}, 
 		[]string{"target_name","source_ip", "destination_ip", "type"})
+	heplify_SIP_call_timing = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "heplify_SIP_call_timing", 
+		Help: "IMS Call timing metrics"}, 
+		[]string{"target_name","source_ip", "destination_ip", "type"})
 	heplify_SIPCallErrorResponse = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "heplify_SIPCallErrorResponse", 
 		Help: "IMS Call Error [456]xx performance"}, 

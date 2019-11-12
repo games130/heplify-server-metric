@@ -294,6 +294,13 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 			CurrentUnixTimestamp := time.Now().Unix()
 			timeTo183Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
 			timeTo180Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
+			
+			//concurrent call metric
+			count, _ := processMap.Size()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.ConcurrentSession").Set(float64(count))
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.ConcurrentSession").Set(float64(count))
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.ConcurrentSession").Set(float64(count))
+			
 		}
 	} else if pkt.FirstMethod == "CANCEL" {
 		value, _ := processMap.Get(keyCallID)
@@ -374,7 +381,16 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_4 node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
-
+						
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 					}
 					
 				case "200":
@@ -390,9 +406,39 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.AnswerCall").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.AnswerCall").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.AnswerCall").Inc()
 					//logp.Info("----> 200 before ringing")
 					//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
-				case "486", "600", "404", "484":
+					
+					//new
+					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					if PreviousUnixTimestamp == nil {
+						//logp.Info("ERROR BYE but no start time")
+						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
+					} else {
+						CurrentUnixTimestamp := time.Now().Unix()
+						timeTo180Map.Delete(pkt.CallID)
+						timeTo183Map.Delete(pkt.CallID)
+						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_4 node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+					}
+					
+					
+				case "486", "600":
 					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
 					processMap.Delete(keyCallID)
@@ -403,7 +449,42 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
 					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
-
+					
+					//new
+					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					if PreviousUnixTimestamp == nil {
+						//logp.Info("ERROR BYE but no start time")
+						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
+					} else {
+						CurrentUnixTimestamp := time.Now().Unix()
+						timeTo180Map.Delete(pkt.CallID)
+						timeTo183Map.Delete(pkt.CallID)
+						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						logp.Info("name=MCD180_4 node=%v from=%v to=%v callid=%v start_timestamp=%v end_timestamp=%v difference=%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeCount").Inc()
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeValue").Set(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, "all", pkt.SrcIP, "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+						heplify_SIP_call_timing.WithLabelValues(tnNew, pkt.DstIP, "all", "CallSetupTimeAccumulated").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
+					}
+				case "404", "484":
+					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
+					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
+					processMap.Delete(keyCallID)
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.FailSessionUser").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.FailSessionUser").Inc()
+					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
+					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
+					heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
+					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
 						processMap.Delete(keyCallID)
@@ -421,6 +502,9 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
 				count, _ := onlineMap.Size()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.AnswerCall").Inc()
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.AnswerCall").Inc()
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.AnswerCall").Inc()
 
 				//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
 			}
@@ -518,14 +602,35 @@ func (p *Prometheus) prepopulateSIPCallMetric(tnNew string, ipAddress string) {
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.SuccSession").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.SuccSession").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.SuccSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.AnswerCall").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.AnswerCall").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.AnswerCall").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.AnswerCall").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.FailSessionUser").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.FailSessionUser").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.FailSessionUser").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.FailSessionUser").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.ConcurrentSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.ConcurrentSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.ConcurrentSession").Set(0)
+		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.ConcurrentSession").Set(0)
 
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.OnlineSession").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.CallCounter").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.AccumulatedCallDuration").Set(0)
+		
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, ipAddress, "CallSetupTimeAccumulated").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, "all", "CallSetupTimeAccumulated").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, ipAddress, tn, "CallSetupTimeAccumulated").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, "all", tn, "CallSetupTimeAccumulated").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, ipAddress, "CallSetupTimeCount").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, "all", "CallSetupTimeCount").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, ipAddress, tn, "CallSetupTimeCount").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, "all", tn, "CallSetupTimeCount").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, ipAddress, "CallSetupTimeValue").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, tn, "all", "CallSetupTimeValue").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, ipAddress, tn, "CallSetupTimeValue").Set(0)
+		heplify_SIP_call_timing.WithLabelValues(tnNew, "all", tn, "CallSetupTimeValue").Set(0)
 	}
 
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.AttSession").Set(0)
@@ -534,8 +639,19 @@ func (p *Prometheus) prepopulateSIPCallMetric(tnNew string, ipAddress string) {
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.RelBeforeRing").Set(0)
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.SuccSession").Set(0)
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.SuccSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.AnswerCall").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.AnswerCall").Set(0)
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.FailSessionUser").Set(0)
 	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.FailSessionUser").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "SC.ConcurrentSession").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "SC.ConcurrentSession").Set(0)
+	
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "CallSetupTimeAccumulated").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "CallSetupTimeAccumulated").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "CallSetupTimeCount").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "CallSetupTimeCount").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", ipAddress, "CallSetupTimeValue").Set(0)
+	heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, "all", "CallSetupTimeValue").Set(0)
 }
 
 
