@@ -278,6 +278,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 	timeTo183Map, _ := p.hazelClient.GetMap("Time183:"+tnNew+peerIP)
 	timeTo180Map, _ := p.hazelClient.GetMap("Time180:"+tnNew+peerIP)
 	processMap, _ := p.hazelClient.GetMap("PROCESS:"+tnNew)
+	concurrentMap, _ := p.hazelClient.GetMap("CONCURRENT:"+tnNew+peerIP)
 	
 	
 	if pkt.FirstMethod == "INVITE" {
@@ -285,6 +286,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		value, _ := processMap.Get(keyCallID)
 		if value == nil {
 			processMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
+			concurrentMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.AttSession").Inc()
@@ -296,10 +298,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 			timeTo180Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
 			
 			//concurrent call metric
-			count, _ := processMap.Size()
-			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.ConcurrentSession").Set(float64(count))
-			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.ConcurrentSession").Set(float64(count))
-			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.ConcurrentSession").Set(float64(count))
+			count, _ := concurrentMap.Size()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			
 		}
 	} else if pkt.FirstMethod == "CANCEL" {
@@ -307,9 +307,14 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		if value != nil {
 			if value == "INVITE"{
 				processMap.Delete(keyCallID)
+				concurrentMap.Delete(keyCallID)
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.RelBeforeRing").Inc()
+				
+				//concurrent call metric
+				count, _ := concurrentMap.Size()
+				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			} else {
 				//logp.Warn("Line 272")
 			}
@@ -320,6 +325,12 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		value, _ := processMap.Get(keyCallID)
 		if value != nil {
 			processMap.Delete(keyCallID)
+			concurrentMap.Delete(keyCallID)
+			
+			//concurrent call metric
+			count, _ := concurrentMap.Size()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+			
 			if value == "ANSWERED" {
 				//new
 				PreviousUnixTimestamp, _ := onlineMap.Get(pkt.CallID)
@@ -363,6 +374,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					}
 				case "180":
 					processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
+					concurrentMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
+					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.SuccSession").Inc()
@@ -395,6 +408,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					
 				case "200":
 					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
@@ -442,6 +456,12 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
 					processMap.Delete(keyCallID)
+					concurrentMap.Delete(keyCallID)
+					
+					//concurrent call metric
+					count, _ := concurrentMap.Size()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.FailSessionUser").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.FailSessionUser").Inc()
@@ -478,6 +498,12 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
 					processMap.Delete(keyCallID)
+					concurrentMap.Delete(keyCallID)
+					
+					//concurrent call metric
+					count, _ := concurrentMap.Size()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+			
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.FailSessionUser").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.FailSessionUser").Inc()
@@ -488,6 +514,12 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
 						processMap.Delete(keyCallID)
+						concurrentMap.Delete(keyCallID)
+						
+						//concurrent call metric
+						count, _ := concurrentMap.Size()
+						heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+			
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, "all", pkt.FirstMethod).Inc()
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, "all", pkt.DstIP, pkt.FirstMethod).Inc()
@@ -496,6 +528,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				}
 			} else if pkt.FirstMethod == "200" && value == "RINGING" {
 				processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+				concurrentMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
 				
 				//new
 				CurrentUnixTimestamp := time.Now().Unix()
@@ -610,10 +643,6 @@ func (p *Prometheus) prepopulateSIPCallMetric(tnNew string, ipAddress string) {
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.FailSessionUser").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.FailSessionUser").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.FailSessionUser").Set(0)
-		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, ipAddress, "SC.ConcurrentSession").Set(0)
-		heplify_SIP_perf_raw.WithLabelValues(tnNew, tn, "all", "SC.ConcurrentSession").Set(0)
-		heplify_SIP_perf_raw.WithLabelValues(tnNew, ipAddress, tn, "SC.ConcurrentSession").Set(0)
-		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.ConcurrentSession").Set(0)
 
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.OnlineSession").Set(0)
 		heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", tn, "SC.CallCounter").Set(0)
