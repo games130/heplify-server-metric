@@ -311,13 +311,16 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.RelBeforeRing").Inc()
-				
-				//concurrent call metric
-				count, _ := concurrentMap.Size()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+			} else if if value == "RINGING"{
+				processMap.Delete(keyCallID)
+				concurrentMap.Delete(keyCallID)
 			} else {
-				//logp.Warn("Line 272")
+				logp.Warn("Line 272")
 			}
+			
+			//concurrent call metric
+			count, _ := concurrentMap.Size()
+			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 		}
 	} else if pkt.FirstMethod == "BYE" {
 		//check if the call has been answer or not. If not answer then dont need to update just delete the cache.
