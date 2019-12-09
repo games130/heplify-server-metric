@@ -273,6 +273,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 	var errorSIP = regexp.MustCompile(`[456]..`)
 	keyCallID := pkt.CallID
 	LongTimer := 21600*time.Second
+	INVITETimer := 36*time.Second
 	OnlineTimer := 43200*time.Second
 	onlineMap, _ := p.hazelClient.GetMap("ONLINE:"+tnNew+peerIP)
 	timeTo183Map, _ := p.hazelClient.GetMap("Time183:"+tnNew+peerIP)
@@ -286,7 +287,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		value, _ := processMap.Get(keyCallID)
 		if value == nil {
 			processMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
-			concurrentMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
+			concurrentMap.SetWithTTL(keyCallID, "INVITE", INVITETimer)
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.AttSession").Inc()
@@ -356,6 +357,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 			}
 		}
 	} else if pkt.CseqMethod == "INVITE" {
+	//This will match all SIP Reply Code 1xx-6xx 
 		value, _ := processMap.Get(keyCallID)
 		if value != nil && value != "ANSWERED" {
 			if value == "INVITE" {
@@ -377,7 +379,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					}
 				case "180":
 					processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
+					concurrentMap.SetWithTTL(keyCallID, "RINGING", INVITETimer)
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
@@ -411,7 +413,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					
 				case "200":
 					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", INVITETimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
@@ -534,28 +536,34 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						}
 					}
 				}
-			} else if pkt.FirstMethod == "200" && value == "RINGING" {
-				processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-				concurrentMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-				
-				//new
-				CurrentUnixTimestamp := time.Now().Unix()
-				onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
-				count, _ := onlineMap.Size()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.AnswerCall").Inc()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.AnswerCall").Inc()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.AnswerCall").Inc()
-
-				//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
-			} else if pkt.FirstMethod == "486" && value == "RINGING" {
-				//specially to target scenario where phone already RINGING (SIP 180) and then receive with SIP 486 BUSY. Such case might be call reject 
-				processMap.Delete(keyCallID)
-				concurrentMap.Delete(keyCallID)
-				
-				//concurrent call metric
-				count, _ := concurrentMap.Size()
-				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+			} else if value == "RINGING" {
+				switch pkt.FirstMethod {
+				case "200":
+					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", INVITETimer)
+					
+					//new
+					CurrentUnixTimestamp := time.Now().Unix()
+					onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
+					count, _ := onlineMap.Size()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.AnswerCall").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.AnswerCall").Inc()
+					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.AnswerCall").Inc()
+					//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
+					
+				default:
+					if errorSIP.MatchString(pkt.FirstMethod){
+						//specially to target scenario where phone already RINGING (SIP 180) and then receive with SIP 486 BUSY. Such case might be call reject
+						//also have scenario where the call fail after RINGING (SIP 180) 
+						processMap.Delete(keyCallID)
+						concurrentMap.Delete(keyCallID)
+						
+						//concurrent call metric
+						count, _ := concurrentMap.Size()
+						heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
+					}
+				}
 			}
 		}
 	}
