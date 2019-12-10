@@ -274,6 +274,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 	keyCallID := pkt.CallID
 	LongTimer := 21600*time.Second
 	INVITETimer := 36*time.Second
+	RINGTimer := 180*time.Second
 	OnlineTimer := 43200*time.Second
 	onlineMap, _ := p.hazelClient.GetMap("ONLINE:"+tnNew+peerIP)
 	timeTo183Map, _ := p.hazelClient.GetMap("Time183:"+tnNew+peerIP)
@@ -379,7 +380,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					}
 				case "180":
 					processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "RINGING", INVITETimer)
+					concurrentMap.SetWithTTL(keyCallID, "RINGING", RINGTimer)
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
@@ -413,7 +414,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					
 				case "200":
 					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", INVITETimer)
+					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
@@ -540,7 +541,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				switch pkt.FirstMethod {
 				case "200":
 					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", INVITETimer)
+					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
