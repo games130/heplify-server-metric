@@ -317,7 +317,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				processMap.Delete(keyCallID)
 				concurrentMap.Delete(keyCallID)
 			} else {
-				logp.Warn("CANCEL received without any INVITE. Call ID=" & keyCallID)
+				logp.Warn("CANCEL received without any INVITE. Call ID=%s",keyCallID)
 			}
 			
 			//concurrent call metric
