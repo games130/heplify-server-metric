@@ -3,7 +3,8 @@ package decoder
 import (
 	"time"
 
-	proto "github.com/games130/heplify-server-metric/proto"
+	//proto "github.com/games130/heplify-server-metric/proto"
+	proto "github.com/games130/microProtocSIP"
 )
 
 // The first 4 bytes are the string "HEP3". The next 2 bytes are the length of the

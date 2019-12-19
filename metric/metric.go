@@ -19,6 +19,7 @@ type Metric struct {
 type MetricHandler interface {
 	setup() error
 	reload()
+	end()
 	expose(chan *decoder.HEP)
 }
 
@@ -38,6 +39,7 @@ func (m *Metric) Run() error {
 	if err != nil {
 		return err
 	}
+	defer m.H.end()
 
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {

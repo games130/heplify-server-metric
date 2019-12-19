@@ -317,7 +317,7 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				processMap.Delete(keyCallID)
 				concurrentMap.Delete(keyCallID)
 			} else {
-				logp.Warn("Line 272")
+				logp.Warn("CANCEL received without any INVITE. Call ID=" & keyCallID)
 			}
 			
 			//concurrent call metric
@@ -835,4 +835,9 @@ func (p *Prometheus) loadData(){
 
 func formatLog(s string) string {
 	return strings.Replace(s,"\r\n"," ",-1)
+}
+
+
+func (p *Prometheus) end(){
+	p.hazelClient.Shutdown()
 }

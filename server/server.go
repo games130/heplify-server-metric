@@ -11,7 +11,8 @@ import (
 	"github.com/games130/heplify-server-metric/config"
 	"github.com/games130/heplify-server-metric/decoder"
 	"github.com/games130/heplify-server-metric/metric"
-	proto "github.com/games130/heplify-server-metric/proto"
+	//proto "github.com/games130/heplify-server-metric/proto"
+	proto "github.com/games130/microProtocSIP"
 
 	"github.com/micro/go-micro"
 	"github.com/micro/go-micro/broker"
