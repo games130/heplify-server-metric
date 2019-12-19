@@ -39,7 +39,6 @@ func (m *Metric) Run() error {
 	if err != nil {
 		return err
 	}
-	defer m.H.end()
 
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
@@ -56,6 +55,7 @@ func (m *Metric) Run() error {
 				m.H.reload()
 			case <-m.quit:
 				m.quit <- true
+				m.H.end()
 				return
 			}
 		}
