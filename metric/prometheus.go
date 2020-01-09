@@ -604,8 +604,8 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				p.processMap.SetWithTTL(keyRegForward, "DeREG", SIPRegTryTimer)
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "RG.UNREGAttempt").Inc()
 				
-				regMap.Delete(tnNew+pkt.FromUser)
-				count, _ := regMap.Size()
+				p.regMap.Delete(tnNew+pkt.FromUser)
+				count, _ := p.regMap.Size()
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "all", "all", "RG.RegisteredUsers").Set(float64(count))
 			} else {
 				//Re-register (before is 1, now is ReREG)
@@ -619,8 +619,8 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 		if value != nil {
 			if pkt.FirstMethod == "200" {
 				//logp.Info("hazelcast: add to hazelcast")
-				regMap.SetWithTTL(tnNew+pkt.FromUser, "value", 1800*time.Second)
-				count, _ := regMap.Size()
+				p.regMap.SetWithTTL(tnNew+pkt.FromUser, "value", 1800*time.Second)
+				count, _ := p.regMap.Size()
 				
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "all", "all", "RG.RegisteredUsers").Set(float64(count))
 				
@@ -644,7 +644,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				case "401", "423":
 					//do nothing
 				default:
-					regMap.Delete(tnNew+pkt.FromUser)
+					p.regMap.Delete(tnNew+pkt.FromUser)
 					p.processMap.Delete(keyRegBackward)
 					//logp.Info("name=SIPRegError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 				}
