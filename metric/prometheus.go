@@ -586,7 +586,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 	keyRegBackward := pkt.DstIP+pkt.SrcIP+pkt.FromUser
 	
 	regMap, _ := p.hazelClient.GetMap("REG:"+tnNew)
-	p.processMap, _ := p.hazelClient.GetMap("PROCESS:"+tnNew)
+	p.processMap, _ = p.hazelClient.GetMap("PROCESS:"+tnNew)
 
 	if pkt.FirstMethod == "REGISTER" {
 		value, _ := p.processMap.Get(keyRegForward)
