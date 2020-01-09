@@ -15,6 +15,7 @@ import (
 	"github.com/games130/heplify-server-metric/config"
 	"github.com/games130/heplify-server-metric/decoder"
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/core"
 	"github.com/hazelcast/hazelcast-go-client/config/property"
 	
 )
@@ -23,6 +24,12 @@ const (
 	invite    = "INVITE"
 	register  = "REGISTER"
 	cacheSize = 60 * 1024 * 1024
+	LongTimer = 21600*time.Second
+	INVITETimer = 36*time.Second
+	RINGTimer = 180*time.Second
+	OnlineTimer = 43200*time.Second
+	SIPRegSessionTimer = 1800*time.Second
+	SIPRegTryTimer = 180*time.Second
 )
 
 type Prometheus struct {
@@ -32,10 +39,15 @@ type Prometheus struct {
 	TargetMap     map[string]string
 	TargetConf    *sync.RWMutex
 	cache         *fastcache.Cache
-	hazelClient	  hazelcast.Client
+	hazelClient   hazelcast.Client
 	perMSGDebug   bool
 	count         int64
 	DataMap       map[string][]string
+	onlineMap     core.Map
+	timeTo183Map  core.Map
+	timeTo180Map  core.Map
+	processMap    core.Map
+	concurrentMap core.Map
 }
 
 func (p *Prometheus) setup() (err error) {
@@ -272,23 +284,19 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 	//var value string
 	var errorSIP = regexp.MustCompile(`[456]..`)
 	keyCallID := pkt.CallID
-	LongTimer := 21600*time.Second
-	INVITETimer := 36*time.Second
-	RINGTimer := 180*time.Second
-	OnlineTimer := 43200*time.Second
-	onlineMap, _ := p.hazelClient.GetMap("ONLINE:"+tnNew+peerIP)
-	timeTo183Map, _ := p.hazelClient.GetMap("Time183:"+tnNew+peerIP)
-	timeTo180Map, _ := p.hazelClient.GetMap("Time180:"+tnNew+peerIP)
-	processMap, _ := p.hazelClient.GetMap("PROCESS:"+tnNew)
-	concurrentMap, _ := p.hazelClient.GetMap("CONCURRENT:"+tnNew+peerIP)
+	p.onlineMap, _ = p.hazelClient.GetMap("ONLINE:"+tnNew+peerIP)
+	p.timeTo183Map, _ = p.hazelClient.GetMap("Time183:"+tnNew+peerIP)
+	p.timeTo180Map, _ = p.hazelClient.GetMap("Time180:"+tnNew+peerIP)
+	p.processMap, _ = p.hazelClient.GetMap("PROCESS:"+tnNew)
+	p.concurrentMap, _ = p.hazelClient.GetMap("CONCURRENT:"+tnNew+peerIP)
 	
 	
 	if pkt.FirstMethod == "INVITE" {
 		//logp.Info("SIP INVITE message callid: %v", pkt.CallID)
-		value, _ := processMap.Get(keyCallID)
+		value, _ := p.processMap.Get(keyCallID)
 		if value == nil {
-			processMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
-			concurrentMap.SetWithTTL(keyCallID, "INVITE", INVITETimer)
+			p.processMap.SetWithTTL(keyCallID, "INVITE", LongTimer)
+			p.concurrentMap.SetWithTTL(keyCallID, "INVITE", INVITETimer)
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.AttSession").Inc()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.AttSession").Inc()
@@ -296,57 +304,57 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 			
 			//new
 			CurrentUnixTimestamp := time.Now().Unix()
-			timeTo183Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
-			timeTo180Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
+			p.timeTo183Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
+			p.timeTo180Map.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
 			
 			//concurrent call metric
-			count, _ := concurrentMap.Size()
+			count, _ := p.concurrentMap.Size()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			
 		}
 	} else if pkt.FirstMethod == "CANCEL" {
-		value, _ := processMap.Get(keyCallID)
+		value, _ := p.processMap.Get(keyCallID)
 		if value != nil {
 			if value == "INVITE"{
-				processMap.Delete(keyCallID)
-				concurrentMap.Delete(keyCallID)
+				p.processMap.Delete(keyCallID)
+				p.concurrentMap.Delete(keyCallID)
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.DstIP, "SC.RelBeforeRing").Inc()
 				heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, "all", "SC.RelBeforeRing").Inc()
 			} else if value == "RINGING"{
-				processMap.Delete(keyCallID)
-				concurrentMap.Delete(keyCallID)
+				p.processMap.Delete(keyCallID)
+				p.concurrentMap.Delete(keyCallID)
 			} else {
 				logp.Warn("CANCEL received without any INVITE. Call ID=%s",keyCallID)
 			}
 			
 			//concurrent call metric
-			count, _ := concurrentMap.Size()
+			count, _ := p.concurrentMap.Size()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 		}
 	} else if pkt.FirstMethod == "BYE" {
 		//check if the call has been answer or not. If not answer then dont need to update just delete the cache.
 		//if dont have this check will cause AccumulatedCallDuration to be very big because start time is 0.
-		value, _ := processMap.Get(keyCallID)
+		value, _ := p.processMap.Get(keyCallID)
 		if value != nil {
-			processMap.Delete(keyCallID)
-			concurrentMap.Delete(keyCallID)
+			p.processMap.Delete(keyCallID)
+			p.concurrentMap.Delete(keyCallID)
 			
 			//concurrent call metric
-			count, _ := concurrentMap.Size()
+			count, _ := p.concurrentMap.Size()
 			heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			
 			if value == "ANSWERED" {
 				//new
-				PreviousUnixTimestamp, _ := onlineMap.Get(pkt.CallID)
+				PreviousUnixTimestamp, _ := p.onlineMap.Get(pkt.CallID)
 				if PreviousUnixTimestamp == nil {
 					//logp.Info("ERROR BYE but no start time")
 					//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 				} else {
 					CurrentUnixTimestamp := time.Now().Unix()
-					onlineMap.Delete(pkt.CallID)
+					p.onlineMap.Delete(pkt.CallID)
 					
-					count, _ := onlineMap.Size()
+					count, _ := p.onlineMap.Size()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.CallCounter").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.AccumulatedCallDuration").Add(float64(CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
@@ -359,19 +367,19 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 		}
 	} else if pkt.CseqMethod == "INVITE" {
 	//This will match all SIP Reply Code 1xx-6xx 
-		value, _ := processMap.Get(keyCallID)
+		value, _ := p.processMap.Get(keyCallID)
 		if value != nil && value != "ANSWERED" {
 			if value == "INVITE" {
 				switch pkt.FirstMethod {
 				case "183":
 					//new
-					PreviousUnixTimestamp, _ := timeTo183Map.Get(pkt.CallID)
+					PreviousUnixTimestamp, _ := p.timeTo183Map.Get(pkt.CallID)
 					if PreviousUnixTimestamp == nil {
 						//logp.Info("ERROR BYE but no start time")
 						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 					} else {
 						CurrentUnixTimestamp := time.Now().Unix()
-						timeTo183Map.Delete(pkt.CallID)
+						p.timeTo183Map.Delete(pkt.CallID)
 						logp.Info("name=MCD183_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD183_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD183_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
@@ -379,8 +387,8 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 
 					}
 				case "180":
-					processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "RINGING", RINGTimer)
+					p.processMap.SetWithTTL(keyCallID, "RINGING", LongTimer)
+					p.concurrentMap.SetWithTTL(keyCallID, "RINGING", RINGTimer)
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, "all", "SC.SuccSession").Inc()
@@ -388,14 +396,14 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					//logp.Info("----> 180 RINGING found")
 					
 					//new
-					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					PreviousUnixTimestamp, _ := p.timeTo180Map.Get(pkt.CallID)
 					if PreviousUnixTimestamp == nil {
 						//logp.Info("ERROR BYE but no start time")
 						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 					} else {
 						CurrentUnixTimestamp := time.Now().Unix()
-						timeTo180Map.Delete(pkt.CallID)
-						timeTo183Map.Delete(pkt.CallID)
+						p.timeTo180Map.Delete(pkt.CallID)
+						p.timeTo183Map.Delete(pkt.CallID)
 						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
@@ -413,14 +421,14 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					}
 					
 				case "200":
-					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
+					p.processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+					p.concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
-					onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
+					p.onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)
 					
-					count, _ := onlineMap.Size()
+					count, _ := p.onlineMap.Size()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.SuccSession").Inc()
@@ -433,14 +441,14 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					//logp.Info("%v----> INVITE answered", tnNew+pkt.DstIP+pkt.SrcIP+pkt.CallID)
 					
 					//new
-					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					PreviousUnixTimestamp, _ := p.timeTo180Map.Get(pkt.CallID)
 					if PreviousUnixTimestamp == nil {
 						//logp.Info("ERROR BYE but no start time")
 						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 					} else {
 						CurrentUnixTimestamp := time.Now().Unix()
-						timeTo180Map.Delete(pkt.CallID)
-						timeTo183Map.Delete(pkt.CallID)
+						p.timeTo180Map.Delete(pkt.CallID)
+						p.timeTo183Map.Delete(pkt.CallID)
 						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
@@ -461,11 +469,11 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				case "486", "600":
 					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
-					processMap.Delete(keyCallID)
-					concurrentMap.Delete(keyCallID)
+					p.processMap.Delete(keyCallID)
+					p.concurrentMap.Delete(keyCallID)
 					
 					//concurrent call metric
-					count, _ := concurrentMap.Size()
+					count, _ := p.concurrentMap.Size()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 					
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
@@ -477,14 +485,14 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 					
 					//new
-					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					PreviousUnixTimestamp, _ := p.timeTo180Map.Get(pkt.CallID)
 					if PreviousUnixTimestamp == nil {
 						//logp.Info("ERROR BYE but no start time")
 						//logp.Info("END OF CALL,node,%v,from,%v,to,%v,callid,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID)
 					} else {
 						CurrentUnixTimestamp := time.Now().Unix()
-						timeTo180Map.Delete(pkt.CallID)
-						timeTo183Map.Delete(pkt.CallID)
+						p.timeTo180Map.Delete(pkt.CallID)
+						p.timeTo183Map.Delete(pkt.CallID)
 						logp.Info("name=MCD180_1 node,%v,from,%v,to,%v,callid,%v,start_timestamp,%v,end_timestamp,%v,difference,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_2 %v,%v,%v,%v,%v,%v,%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
 						logp.Info("name=MCD180_3 node:%v,from:%v,to:%v,callid:%v,start_timestamp:%v,end_timestamp:%v,difference:%v", tnNew, pkt.FromUser, pkt.ToUser, pkt.CallID, PreviousUnixTimestamp, CurrentUnixTimestamp, (CurrentUnixTimestamp-PreviousUnixTimestamp.(int64)))
@@ -493,11 +501,11 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 				case "404", "484":
 					//found some miscalculation because of user already ringing but later reject the call. INVITE sent, 180 receive and after a while 486 receive due to reject of call.
 					//because of this 180 counted as SC.SuccSession then 486 counted as SC.FailSessionUser, this cause NER to be calculated wrongly
-					processMap.Delete(keyCallID)
-					concurrentMap.Delete(keyCallID)
+					p.processMap.Delete(keyCallID)
+					p.concurrentMap.Delete(keyCallID)
 					
 					//concurrent call metric
-					count, _ := concurrentMap.Size()
+					count, _ := p.concurrentMap.Size()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.FailSessionUser").Inc()
@@ -509,19 +517,19 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 					
 					//new
-					PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+					PreviousUnixTimestamp, _ := p.timeTo180Map.Get(pkt.CallID)
 					if PreviousUnixTimestamp != nil {
-						timeTo180Map.Delete(pkt.CallID)
-						timeTo183Map.Delete(pkt.CallID)
+						p.timeTo180Map.Delete(pkt.CallID)
+						p.timeTo183Map.Delete(pkt.CallID)
 					}
 					
 				default:
 					if errorSIP.MatchString(pkt.FirstMethod){
-						processMap.Delete(keyCallID)
-						concurrentMap.Delete(keyCallID)
+						p.processMap.Delete(keyCallID)
+						p.concurrentMap.Delete(keyCallID)
 						
 						//concurrent call metric
-						count, _ := concurrentMap.Size()
+						count, _ := p.concurrentMap.Size()
 						heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 			
 						heplify_SIPCallErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
@@ -530,23 +538,23 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 						logp.Info("name=SIPCallError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 						
 						//new
-						PreviousUnixTimestamp, _ := timeTo180Map.Get(pkt.CallID)
+						PreviousUnixTimestamp, _ := p.timeTo180Map.Get(pkt.CallID)
 						if PreviousUnixTimestamp != nil {
-							timeTo180Map.Delete(pkt.CallID)
-							timeTo183Map.Delete(pkt.CallID)
+							p.timeTo180Map.Delete(pkt.CallID)
+							p.timeTo183Map.Delete(pkt.CallID)
 						}
 					}
 				}
 			} else if value == "RINGING" {
 				switch pkt.FirstMethod {
 				case "200":
-					processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
-					concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
+					p.processMap.SetWithTTL(keyCallID, "ANSWERED", LongTimer)
+					p.concurrentMap.SetWithTTL(keyCallID, "ANSWERED", OnlineTimer)
 					
 					//new
 					CurrentUnixTimestamp := time.Now().Unix()
-					onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
-					count, _ := onlineMap.Size()
+					p.onlineMap.SetWithTTL(pkt.CallID, CurrentUnixTimestamp, OnlineTimer)				
+					count, _ := p.onlineMap.Size()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.OnlineSession").Set(float64(count))
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "SC.AnswerCall").Inc()
 					heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", pkt.SrcIP, "SC.AnswerCall").Inc()
@@ -557,11 +565,11 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 					if errorSIP.MatchString(pkt.FirstMethod){
 						//specially to target scenario where phone already RINGING (SIP 180) and then receive with SIP 486 BUSY. Such case might be call reject
 						//also have scenario where the call fail after RINGING (SIP 180) 
-						processMap.Delete(keyCallID)
-						concurrentMap.Delete(keyCallID)
+						p.processMap.Delete(keyCallID)
+						p.concurrentMap.Delete(keyCallID)
 						
 						//concurrent call metric
-						count, _ := concurrentMap.Size()
+						count, _ := p.concurrentMap.Size()
 						heplify_SIP_perf_raw.WithLabelValues(tnNew, "all", peerIP, "SC.ConcurrentSession").Set(float64(count))
 					}
 				}
@@ -574,27 +582,25 @@ func (p *Prometheus) ownPerformance(pkt *decoder.HEP, tnNew string, peerIP strin
 
 func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 	var errorSIP = regexp.MustCompile(`[456]..`)
-	SIPRegSessionTimer := 1800*time.Second
-	SIPRegTryTimer := 180*time.Second
 	keyRegForward := pkt.SrcIP+pkt.DstIP+pkt.FromUser
 	keyRegBackward := pkt.DstIP+pkt.SrcIP+pkt.FromUser
 	
 	regMap, _ := p.hazelClient.GetMap("REG:"+tnNew)
-	processMap, _ := p.hazelClient.GetMap("PROCESS:"+tnNew)
+	p.processMap, _ := p.hazelClient.GetMap("PROCESS:"+tnNew)
 
 	if pkt.FirstMethod == "REGISTER" {
-		value, _ := processMap.Get(keyRegForward)
+		value, _ := p.processMap.Get(keyRegForward)
 		
 		if value == nil {
 			//1st time register (before is 0, now is FirstREG)
-			processMap.SetWithTTL(keyRegForward, "FirstREG", SIPRegTryTimer)
+			p.processMap.SetWithTTL(keyRegForward, "FirstREG", SIPRegTryTimer)
 			heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "RG.1REGAttempt").Inc()
 		} else if value == "SuccessREG"{
 			if pkt.Expires == "0" {
 				//de-register (before is 3, now is DeREG)
 				logp.Info("%v is going to un-register. Expires=0", pkt.FromUser)
 				
-				processMap.SetWithTTL(keyRegForward, "DeREG", SIPRegTryTimer)
+				p.processMap.SetWithTTL(keyRegForward, "DeREG", SIPRegTryTimer)
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "RG.UNREGAttempt").Inc()
 				
 				regMap.Delete(tnNew+pkt.FromUser)
@@ -602,12 +608,12 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, "all", "all", "RG.RegisteredUsers").Set(float64(count))
 			} else {
 				//Re-register (before is 1, now is ReREG)
-				processMap.SetWithTTL(keyRegForward, "ReREG", SIPRegTryTimer)
+				p.processMap.SetWithTTL(keyRegForward, "ReREG", SIPRegTryTimer)
 				heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, "RG.RREGAttempt").Inc()
 			}
 		}		
 	} else if pkt.CseqMethod == "REGISTER"{
-		value, _ := processMap.Get(keyRegBackward)
+		value, _ := p.processMap.Get(keyRegBackward)
 		
 		if value != nil {
 			if pkt.FirstMethod == "200" {
@@ -620,14 +626,14 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 				if value == "FirstREG"{
 					heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "RG.1REGAttemptSuccess").Inc()
 					//success register (before is 2, now is SuccessREG)
-					processMap.SetWithTTL(keyRegBackward, "SuccessREG", SIPRegSessionTimer)
+					p.processMap.SetWithTTL(keyRegBackward, "SuccessREG", SIPRegSessionTimer)
 				} else if value == "ReREG"{
 					heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "RG.RREGAttemptSuccess").Inc()
 					//success register
-					processMap.SetWithTTL(keyRegBackward, "SuccessREG", SIPRegSessionTimer)
+					p.processMap.SetWithTTL(keyRegBackward, "SuccessREG", SIPRegSessionTimer)
 				} else if value == "DeREG"{
 					heplify_SIP_REG_perf_raw.WithLabelValues(tnNew, pkt.DstIP, pkt.SrcIP, "RG.UNREGAttemptSuccess").Inc()
-					processMap.Delete(keyRegBackward)
+					p.processMap.Delete(keyRegBackward)
 				}
 			} else if errorSIP.MatchString(pkt.FirstMethod){
 				heplify_SIPRegisterErrorResponse.WithLabelValues(tnNew, pkt.SrcIP, pkt.DstIP, pkt.FirstMethod).Inc()
@@ -638,7 +644,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 					//do nothing
 				default:
 					regMap.Delete(tnNew+pkt.FromUser)
-					processMap.Delete(keyRegBackward)
+					p.processMap.Delete(keyRegBackward)
 					//logp.Info("name=SIPRegError node=%v msg=%v", tnNew, formatLog(pkt.Payload))
 				}
 			}
