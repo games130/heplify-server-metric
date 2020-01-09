@@ -61,6 +61,7 @@ func (p *Prometheus) setup() (err error) {
 	hazelConfig.GroupConfig().SetName(config.Setting.HazelCastGroupName)
 	hazelConfig.GroupConfig().SetPassword(config.Setting.HazelCastGroupPassword)
 	hazelConfig.NetworkConfig().AddAddress(config.Setting.HazelCastAddr)
+	hazelConfig.SetClientName(config.Setting.HazelCastClientName)
 	
 	
 	p.hazelClient, err = hazelcast.NewClientWithConfig(hazelConfig)
