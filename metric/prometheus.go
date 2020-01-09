@@ -48,6 +48,7 @@ type Prometheus struct {
 	timeTo180Map  core.Map
 	processMap    core.Map
 	concurrentMap core.Map
+	regMap        core.Map
 }
 
 func (p *Prometheus) setup() (err error) {
@@ -585,7 +586,7 @@ func (p *Prometheus) regPerformance(pkt *decoder.HEP, tnNew string) {
 	keyRegForward := pkt.SrcIP+pkt.DstIP+pkt.FromUser
 	keyRegBackward := pkt.DstIP+pkt.SrcIP+pkt.FromUser
 	
-	regMap, _ := p.hazelClient.GetMap("REG:"+tnNew)
+	p.regMap, _ = p.hazelClient.GetMap("REG:"+tnNew)
 	p.processMap, _ = p.hazelClient.GetMap("PROCESS:"+tnNew)
 
 	if pkt.FirstMethod == "REGISTER" {
